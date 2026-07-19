@@ -1,0 +1,81 @@
+{
+  "name": "@rheopyrin/ox-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Open-Xchange and standards-based mail platforms: email (IMAP/SMTP), mail filters (Sieve), calendar (CalDAV), contacts (CardDAV), and free/busy scheduling.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "open-xchange",
+    "imap",
+    "smtp",
+    "sieve",
+    "caldav",
+    "carddav",
+    "email",
+    "calendar",
+    "contacts"
+  ],
+  "license": "MIT",
+  "author": "Rheopyrin",
+  "homepage": "https://github.com/Rheopyrin/ox-mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rheopyrin/ox-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Rheopyrin/ox-mcp/issues"
+  },
+  "type": "module",
+  "bin": {
+    "ox-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "mcpName": "io.github.Rheopyrin/ox-mcp",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "ical-generator": "^8.0.1",
+    "ical.js": "^2.1.0",
+    "imapflow": "^1.0.171",
+    "inversify": "^6.2.2",
+    "mailparser": "^3.9.14",
+    "nodemailer": "^9.0.3",
+    "reflect-metadata": "^0.2.2",
+    "tsdav": "^2.1.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/mailparser": "^3.4.6",
+    "@types/node": "^22.10.5",
+    "@types/nodemailer": "^6.4.17",
+    "@vitest/coverage-v8": "^2.1.8",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.19.0",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Rheopyrin/ox-mcp",
+  "title": "ox-mcp",
+  "description": "MCP server for Open-Xchange and standards-based mail platforms: email (IMAP/SMTP), mail filters (Sieve), calendar (CalDAV), contacts (CardDAV), and free/busy scheduling.",
+  "repository": {
+    "url": "https://github.com/Rheopyrin/ox-mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@rheopyrin/ox-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "OX_MCP_MAIL_SERVER",
+          "description": "IMAP/SMTP/ManageSieve host for the mail section (email_* tools).",
+          "isRequired": false
+        },
+        {
+          "name": "OX_MCP_MAIL_USER",
+          "description": "Login user (mailbox address) for the mail section.",
+          "isRequired": false
+        },
+        {
+          "name": "OX_MCP_MAIL_APP_PASSWORD",
+          "description": "App password for the mail section (basic auth).",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "OX_MCP_CALDAV_SERVER",
+          "description": "CalDAV host for the calDav section (calendar_* tools).",
+          "isRequired": false
+        },
+        {
+          "name": "OX_MCP_CALDAV_USER",
+          "description": "Login user for the calDav section.",
+          "isRequired": false
+        },
+        {
+          "name": "OX_MCP_CALDAV_APP_PASSWORD",
+          "description": "App password for the calDav section (servers may scope passwords per protocol).",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "OX_MCP_CARDDAV_SERVER",
+          "description": "CardDAV host for the cardDav section (contact_* tools).",
+          "isRequired": false
+        },
+        {
+          "name": "OX_MCP_CARDDAV_USER",
+          "description": "Login user for the cardDav section.",
+          "isRequired": false
+        },
+        {
+          "name": "OX_MCP_CARDDAV_APP_PASSWORD",
+          "description": "App password for the cardDav section.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
