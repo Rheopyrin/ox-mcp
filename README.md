@@ -1,5 +1,12 @@
 # ox-mcp
 
+[![npm](https://img.shields.io/npm/v/@rheopyrin/ox-mcp?logo=npm)](https://www.npmjs.com/package/@rheopyrin/ox-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/@rheopyrin/ox-mcp)](https://www.npmjs.com/package/@rheopyrin/ox-mcp)
+[![license: MIT](https://img.shields.io/npm/l/@rheopyrin/ox-mcp)](LICENSE)
+[![node](https://img.shields.io/node/v/@rheopyrin/ox-mcp)](package.json)
+
+[![ox-mcp MCP server](https://glama.ai/mcp/servers/Rheopyrin/ox-mcp/badges/card.svg)](https://glama.ai/mcp/servers/Rheopyrin/ox-mcp)
+
 An MCP server for **Open-Xchange and standards-based mail platforms** — read & search email, send & reply, manage server-side filters, calendar events and invitations, contacts, and other people's availability (free/busy), across one or many accounts.
 
 It speaks standard **IMAP + SMTP + ManageSieve + CalDAV + CardDAV** with **RFC 6638** free/busy, so it works with any Open-Xchange deployment or standards-compliant host. Authenticate with your **email + app password** (the same credential DAVx5 uses) or OAuth2/OIDC.
