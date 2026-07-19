@@ -1,5 +1,6 @@
 import { inject, injectable } from 'inversify';
 import { TYPES } from '../core/types.js';
+import { VERSION } from '../core/version.js';
 import type { Logger } from '../core/logger.js';
 import type { ResolvedAuth } from '../config/config-resolver.js';
 
@@ -125,7 +126,7 @@ export class OxSessionManager {
         name: auth.user,
         password: auth.appPassword,
         client: 'ox-mcp',
-        version: '0.1.0',
+        version: VERSION,
         staySignedIn: 'true',
       }).toString(),
     });

@@ -2,7 +2,7 @@ name: Publish
 
 on:
   push:
-    tags: ['v*'] # e.g. v0.1.0
+    branches: ['master']
 
 jobs:
   publish:
@@ -22,24 +22,44 @@ jobs:
       - run: npm run test
       - run: npm run build
 
+      # Publish runs on every push to master, so only actually publish when the
+      # version in package.json isn't on npm yet — ordinary commits are no-ops.
+      - name: Check whether this version is already published
+        id: version
+        run: |
+          VERSION=$(jq -r .version package.json)
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+          if npm view "@rheopyrin/ox-mcp@$VERSION" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Version $VERSION already on npm — skipping publish."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Version $VERSION not on npm — publishing."
+          fi
+
       # --- Publish to npm ---
       - name: Publish package to npm
+        if: steps.version.outputs.published == 'false'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # --- Publish to the MCP Registry ---
       - name: Install mcp-publisher
+        if: steps.version.outputs.published == 'false'
         run: |
           curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
 
-      - name: Sync server.json version to the tag
+      - name: Sync server.json version to package.json
+        if: steps.version.outputs.published == 'false'
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION=${{ steps.version.outputs.value }}
           jq --arg v "$VERSION" '.version = $v | (.packages[0].version) = $v' server.json > server.tmp && mv server.tmp server.json
 
       - name: Authenticate to MCP Registry (GitHub OIDC)
+        if: steps.version.outputs.published == 'false'
         run: ./mcp-publisher login github-oidc
 
       - name: Publish server to MCP Registry
+        if: steps.version.outputs.published == 'false'
         run: ./mcp-publisher publish
