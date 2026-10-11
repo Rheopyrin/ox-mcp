@@ -15,7 +15,7 @@ const auth: AuthProvider = {
   getDavAuthHeader: async () => 'Basic abc',
 };
 
-const CAL_URL = 'https://dav/cal/1/';
+const CAL_URL = 'https://dav.example.com/cal/1/';
 
 function makeBackend(overrides: Partial<TsdavBackend> = {}) {
   const eventIcal = buildEventICal({
@@ -182,5 +182,91 @@ describe('CalDavClient — respondToEvent', () => {
     await expect(client.respondToEvent(CAL_URL, `${CAL_URL}gone.ics`, 'TENTATIVE')).rejects.toThrow(
       /Event object not found/,
     );
+  });
+});
+
+describe('CalDavClient — object URLs never leave the CalDAV server', () => {
+  const input = { summary: 'x', start: '2026-07-20T10:00:00Z', end: '2026-07-20T11:00:00Z' };
+
+  // Model-controlled objectUrl values that must not receive the Authorization header.
+  const hostile = [
+    'https://evil.example/steal.ics',
+    'https://dav.example.com@evil.example/steal.ics', // userinfo trick
+    'https://dav.example.com.evil.example/steal.ics', // suffix lookalike
+    '//evil.example/steal.ics', // protocol-relative
+    'http://dav.example.com/cal/1/ev-1.ics', // cleartext downgrade
+    'https://dav.example.com:8443/cal/1/ev-1.ics', // different port = different origin
+    'javascript:alert(1)',
+  ];
+
+  it.each(hostile)('updateEvent refuses %s without sending a request', async (url) => {
+    const backend = makeBackend();
+    const { client } = makeClient(backend);
+    await expect(client.updateEvent(url, input, 'e1')).rejects.toThrow(/Refusing to send CalDAV credentials/);
+    expect(backend.updateCalendarObject).not.toHaveBeenCalled();
+  });
+
+  it.each(hostile)('deleteEvent refuses %s without sending a request', async (url) => {
+    const backend = makeBackend();
+    const { client } = makeClient(backend);
+    await expect(client.deleteEvent(url, 'e1')).rejects.toThrow(/Refusing to send CalDAV credentials/);
+    expect(backend.deleteCalendarObject).not.toHaveBeenCalled();
+  });
+
+  it.each(hostile)('respondToEvent refuses %s before fetching it', async (url) => {
+    const backend = makeBackend();
+    const { client } = makeClient(backend);
+    await expect(client.respondToEvent(CAL_URL, url, 'ACCEPTED')).rejects.toThrow(
+      /Refusing to send CalDAV credentials/,
+    );
+    expect(backend.fetchCalendarObjects).not.toHaveBeenCalled();
+    expect(backend.updateCalendarObject).not.toHaveBeenCalled();
+  });
+
+  it('respondToEvent refuses to PUT back to a foreign URL returned by the server', async () => {
+    const invite = buildEventICal({
+      uid: 'inv-3@ox-mcp',
+      summary: 'Invite',
+      start: '2026-07-22T10:00:00Z',
+      end: '2026-07-22T11:00:00Z',
+      attendees: [{ email: 'me@ex.com' }],
+    }).ical;
+    const backend = makeBackend({
+      fetchCalendarObjects: vi.fn(async () => [{ url: 'https://evil.example/inv-3.ics', etag: 'e1', data: invite }]),
+    });
+    const { client } = makeClient(backend);
+    await expect(client.respondToEvent(CAL_URL, `${CAL_URL}inv-3.ics`, 'ACCEPTED')).rejects.toThrow(
+      /Refusing to send CalDAV credentials/,
+    );
+    expect(backend.updateCalendarObject).not.toHaveBeenCalled();
+  });
+
+  it('resolves relative paths against the configured server', async () => {
+    const backend = makeBackend();
+    const { client } = makeClient(backend);
+    await client.deleteEvent('/cal/1/ev-1.ics', 'e1');
+    expect(backend.deleteCalendarObject).toHaveBeenCalledWith({
+      calendarObject: { url: `${CAL_URL}ev-1.ics`, etag: 'e1' },
+    });
+  });
+
+  it('strips userinfo from same-origin URLs', async () => {
+    const backend = makeBackend();
+    const { client } = makeClient(backend);
+    await client.deleteEvent('https://x:y@dav.example.com/cal/1/ev-1.ics', 'e1');
+    expect(backend.deleteCalendarObject).toHaveBeenCalledWith({
+      calendarObject: { url: `${CAL_URL}ev-1.ics`, etag: 'e1' },
+    });
+  });
+
+  it('allows hosts the server itself lists calendars on (split-host providers)', async () => {
+    const shard = 'https://p42-caldav.example.net/123/calendars/home/';
+    const backend = makeBackend({
+      fetchCalendars: vi.fn(async () => [{ url: shard, displayName: 'Home' }]),
+    });
+    const { client } = makeClient(backend);
+    await client.updateEvent(`${shard}ev-9.ics`, input, 'e1');
+    const putArg = (backend.updateCalendarObject as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(putArg.calendarObject.url).toBe(`${shard}ev-9.ics`);
   });
 });
