@@ -66,8 +66,11 @@ describe('ConfigLoader first run', () => {
     expect(account.cardDav?.features?.list).toBe(true);
     expect(account.cardDav?.features?.create).toBe(false);
 
-    const mode = (await stat(paths.configFile())).mode & 0o777;
-    expect(mode).toBe(0o600);
+    // Windows has no POSIX permission bits (stat always reports 0666).
+    if (process.platform !== 'win32') {
+      const mode = (await stat(paths.configFile())).mode & 0o777;
+      expect(mode).toBe(0o600);
+    }
 
     // schema sibling written too
     expect(await readFile(paths.schemaFile(), 'utf8')).toContain('ox-mcp config');

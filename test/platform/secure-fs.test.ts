@@ -29,6 +29,8 @@ describe('PosixSecureFs', () => {
     await fs.writeFileSecure(file, '{"a":1}');
 
     expect(await fs.readFile(file)).toBe('{"a":1}');
+    // Windows has no POSIX permission bits (stat always reports 0666/0777).
+    if (process.platform === 'win32') return;
     const fileMode = (await stat(file)).mode & 0o777;
     const dirMode = (await stat(join(dir, 'nested'))).mode & 0o777;
     expect(fileMode).toBe(0o600);
