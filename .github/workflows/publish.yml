@@ -3,13 +3,14 @@ name: Publish
 on:
   push:
     branches: ['master']
+  workflow_dispatch: # re-run a release by hand (only missing targets are published)
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
       id-token: write # OIDC auth to the MCP Registry
-      contents: read
+      contents: write # create the v<version> tag + GitHub Release
     steps:
       - uses: actions/checkout@v5
 
@@ -22,44 +23,76 @@ jobs:
       - run: npm run test
       - run: npm run build
 
-      # Publish runs on every push to master, so only actually publish when the
-      # version in package.json isn't on npm yet — ordinary commits are no-ops.
-      - name: Check whether this version is already published
+      # Runs on every push to master. npm, the MCP Registry and the GitHub
+      # Release are each checked separately and only the missing ones are
+      # published, so ordinary commits are no-ops and a partially failed
+      # release can simply be re-run.
+      - name: Check what is already published
         id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(jq -r .version package.json)
+          PKG=$(jq -r .name package.json)
+          SERVER=$(jq -r '.name | @uri' server.json)
           echo "value=$VERSION" >> "$GITHUB_OUTPUT"
-          if npm view "@rheopyrin/ox-mcp@$VERSION" version >/dev/null 2>&1; then
-            echo "published=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Version $VERSION already on npm — skipping publish."
-          else
-            echo "published=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Version $VERSION not on npm — publishing."
-          fi
+          echo "pkg=$PKG" >> "$GITHUB_OUTPUT"
+
+          if npm view "$PKG@$VERSION" version --prefer-online >/dev/null 2>&1; then npm=true; else npm=false; fi
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' "https://registry.modelcontextprotocol.io/v0/servers/$SERVER/versions/$VERSION")
+          if [ "$STATUS" = "200" ]; then registry=true; else registry=false; fi
+          if gh release view "v$VERSION" >/dev/null 2>&1; then release=true; else release=false; fi
+
+          echo "npm=$npm" >> "$GITHUB_OUTPUT"
+          echo "registry=$registry" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          echo "::notice::v$VERSION — on npm: $npm, on MCP Registry: $registry, GitHub Release: $release"
 
       # --- Publish to npm ---
       - name: Publish package to npm
-        if: steps.version.outputs.published == 'false'
+        if: steps.version.outputs.npm == 'false'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      # --- Tag + GitHub Release ---
+      - name: Create v<version> tag and GitHub Release
+        if: steps.version.outputs.release == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=${{ steps.version.outputs.value }}
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
+
       # --- Publish to the MCP Registry ---
+      # The registry validates the npm package version, and a fresh npm publish
+      # takes a moment to become readable — wait for it instead of failing.
+      - name: Wait for npm to serve this version
+        if: steps.version.outputs.registry == 'false'
+        run: |
+          VERSION=${{ steps.version.outputs.value }}
+          PKG=${{ steps.version.outputs.pkg }}
+          for i in $(seq 1 30); do
+            if npm view "$PKG@$VERSION" version --prefer-online >/dev/null 2>&1; then exit 0; fi
+            echo "npm not serving $PKG@$VERSION yet ($i/30)…"; sleep 10
+          done
+          echo "::error::npm still does not serve $PKG@$VERSION after 5 minutes."; exit 1
+
       - name: Install mcp-publisher
-        if: steps.version.outputs.published == 'false'
+        if: steps.version.outputs.registry == 'false'
         run: |
           curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
 
       - name: Sync server.json version to package.json
-        if: steps.version.outputs.published == 'false'
+        if: steps.version.outputs.registry == 'false'
         run: |
           VERSION=${{ steps.version.outputs.value }}
           jq --arg v "$VERSION" '.version = $v | (.packages[0].version) = $v' server.json > server.tmp && mv server.tmp server.json
 
       - name: Authenticate to MCP Registry (GitHub OIDC)
-        if: steps.version.outputs.published == 'false'
+        if: steps.version.outputs.registry == 'false'
         run: ./mcp-publisher login github-oidc
 
       - name: Publish server to MCP Registry
-        if: steps.version.outputs.published == 'false'
+        if: steps.version.outputs.registry == 'false'
         run: ./mcp-publisher publish
