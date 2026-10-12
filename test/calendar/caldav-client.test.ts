@@ -269,4 +269,15 @@ describe('CalDavClient — object URLs never leave the CalDAV server', () => {
     const putArg = (backend.updateCalendarObject as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(putArg.calendarObject.url).toBe(`${shard}ev-9.ics`);
   });
+
+  it('rejects a create whose uid would resolve to another host', async () => {
+    const backend = makeBackend();
+    const { client } = makeClient(backend);
+    for (const uid of ['https://evil.example/steal', '//evil.example/steal', 'http://dav.example.com/cal/1/x']) {
+      await expect(client.createEvent(CAL_URL, { ...input, uid })).rejects.toThrow(
+        /Refusing to send CalDAV credentials/,
+      );
+    }
+    expect(backend.createCalendarObject).not.toHaveBeenCalled();
+  });
 });

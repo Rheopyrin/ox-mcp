@@ -104,6 +104,9 @@ export class CalDavClient {
     const calendar = await this.findCalendar(backend, calendarUrl);
     const { uid, ical } = buildEventICal(input);
     const filename = `${uid}.ics`;
+    // tsdav PUTs to new URL(filename, calendar.url), so an absolute or
+    // protocol-relative uid would redirect the authenticated request.
+    await this.trustedObjectUrl(backend, new URL(filename, calendar.url).href);
     const res = await backend.createCalendarObject({ calendar, iCalString: ical, filename });
     assertOk(res, 'create event');
     return { uid, url: joinUrl(calendar.url, filename) };
